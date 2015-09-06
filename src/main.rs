@@ -12,7 +12,7 @@ use docopt::Docopt;
 use notify::{Error, RecommendedWatcher, Watcher};
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
-use std::process::{Command, Stdio};
+use std::process::{Command};
 
 mod cargo;
 mod compile;
@@ -105,10 +105,7 @@ fn main() {
               let mut s = state.lock().unwrap();
               for pid in &mut s.processes {
                 println!("Killing previous process tree '{}'...", pid);
-                Command::new("pkill")
-                  .stderr(Stdio::inherit())
-                  .stdout(Stdio::inherit())
-                  .args(&["-P", &pid.to_string()])
+                Command::new("pkill").args(&["-P", &pid.to_string()])
                   .output()
                   .unwrap_or_else(|e| { panic!("failed to kill process tree '{}': {}", pid, e) });
               }
