@@ -104,7 +104,7 @@ fn main() {
             {
               let mut s = state.lock().unwrap();
               for pid in &mut s.processes {
-                println!("Killing previous process tree '{}'...", pid);
+                debug!("Killing previous process tree '{}'...", pid);
                 Command::new("pkill").args(&["-P", &pid.to_string()])
                   .output()
                   .unwrap_or_else(|e| { panic!("failed to kill process tree '{}': {}", pid, e) });

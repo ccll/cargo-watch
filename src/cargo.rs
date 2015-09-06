@@ -50,7 +50,6 @@ pub fn run(state: Arc<Mutex<State>>, cmds: &str) {
   println!("\n$ cargo {}", cmds);
   match cmds_vec[0] {
     "run" => {
-      println!("Executing 'cargo run'");
       let mut s = state.lock().unwrap();
       match Command::new("cargo")
                 .stderr(Stdio::inherit())
@@ -59,7 +58,7 @@ pub fn run(state: Arc<Mutex<State>>, cmds: &str) {
                 .spawn() {
           Err(e) => println!("Failed to execute 'cargo {}': {}", cmds, e),
           Ok(child) => {
-            println!("Spawned process: '{}'", child.id());
+            debug!("Spawned process: '{}'", child.id());
             s.processes.push(child.id());
           }
       }
