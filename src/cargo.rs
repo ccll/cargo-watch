@@ -6,6 +6,8 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 use std::process::Stdio;
+use std::sync::{Arc, Mutex};
+use super::{State};
 
 macro_rules! Sl(($v:expr) => (String::from_utf8_lossy($v.as_slice())));
 
@@ -43,15 +45,34 @@ pub fn root() -> Option<PathBuf> {
 }
 
 /// Runs one or more cargo commands and displays the output.
-pub fn run(cmds: &str) {
+pub fn run(state: Arc<Mutex<State>>, cmds: &str) {
   let cmds_vec: Vec<&str> = cmds.split_whitespace().collect();
   println!("\n$ cargo {}", cmds);
-  match Command::new("cargo")
-    .stderr(Stdio::inherit())
-    .stdout(Stdio::inherit())
-    .args(&cmds_vec)
-    .output() {
-    Ok(o) => println!("-> {}", o.status),
-    Err(e) => println!("Failed to execute 'cargo {}': {}", cmds, e)
-  };
+  match cmds_vec[0] {
+    "run" => {
+      println!("Executing 'cargo run'");
+      let mut s = state.lock().unwrap();
+      match Command::new("cargo")
+                .stderr(Stdio::inherit())
+                .stdout(Stdio::inherit())
+                .args(&cmds_vec)
+                .spawn() {
+          Err(e) => println!("Failed to execute 'cargo {}': {}", cmds, e),
+          Ok(child) => {
+            println!("Spawned process: '{}'", child.id());
+            s.processes.push(child.id());
+          }
+      }
+    }
+    _ => {
+      match Command::new("cargo")
+                .stderr(Stdio::inherit())
+                .stdout(Stdio::inherit())
+                .args(&cmds_vec)
+                .output() {
+          Ok(o) => println!("-> {}", o.status),
+          Err(e) => println!("Failed to execute 'cargo {}': {}", cmds, e)
+      };
+    }
+  }
 }

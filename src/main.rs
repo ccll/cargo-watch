@@ -11,7 +11,8 @@ extern crate env_logger;
 use docopt::Docopt;
 use notify::{Error, RecommendedWatcher, Watcher};
 use std::sync::mpsc::channel;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::process::{Command, Stdio};
 
 mod cargo;
 mod compile;
@@ -56,6 +57,20 @@ impl Config {
   }
 }
 
+pub type Pid = u32;
+
+pub struct State {
+  processes: Vec<Pid>,
+}
+
+impl State {
+  fn new() -> State {
+    State  {
+      processes: Vec::new()
+    }
+  }
+}
+
 fn main() {
   env_logger::init().unwrap();
   let config = Config::new();
@@ -71,6 +86,11 @@ fn main() {
 
   let t = timelock::new();
   let c = Arc::new(config);
+  let state = Arc::new(Mutex::new(State::new()));
+
+  // Initial run.
+  compile::compile(state.clone(), t.clone(), c.clone());
+
   match cargo::root() {
     Some(p) => {
       let _ = watcher.watch(&p.join("src"));
@@ -79,8 +99,23 @@ fn main() {
 
       loop {
         match rx.recv() {
-          Ok(e) => compile::handle_event(&t, e, c.clone()),
-          Err(_) => ()
+          Err(_) => (),
+          Ok(e) => {
+            {
+              let mut s = state.lock().unwrap();
+              for pid in &mut s.processes {
+                println!("Killing previous process tree '{}'...", pid);
+                Command::new("pkill")
+                  .stderr(Stdio::inherit())
+                  .stdout(Stdio::inherit())
+                  .args(&["-P", &pid.to_string()])
+                  .output()
+                  .unwrap_or_else(|e| { panic!("failed to kill process tree '{}': {}", pid, e) });
+              }
+              s.processes.clear();
+            }
+            compile::handle_event(state.clone(), &t, e, c.clone());
+          }
         }
       }
     },
